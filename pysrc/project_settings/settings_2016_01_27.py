@@ -72,7 +72,7 @@ graph_color_code = {0: (0, 200, 10), # node is chosen
                     }
 
 
-debug = False
+debug = True
 make_folder = [segmentation_folder,
                cell_selection_folder, 
                debug_folder, 

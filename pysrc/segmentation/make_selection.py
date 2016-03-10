@@ -41,7 +41,7 @@ class Analyzer(object):
     def process_single_file(self, filename, output_folder):
         img_filename = os.path.basename(filename)
         prefix = os.path.splitext(img_filename)[0]
-        output_file = os.path.join(output_folder, 'circle_centers_%s.txt' % prefix)
+        output_file = os.path.join(output_folder, 'circle_centers_%s.txt' % prefix.replace(' ', '_'))
         self._process_single_file(filename, output_file)
         
         return
@@ -57,15 +57,16 @@ class Analyzer(object):
         t1 = img[:,1,:,:]
 
         # make max projection
-        imin = np.max(t1, axis=0)
-        
-        sw = segmentation.basic.SimpleWorkflow("./project_settings/settings_2015_09_18.py")
+        imin = np.max(t1, axis=0)        
+        sw = segmentation.basic.SimpleWorkflow(settings=self.settings, 
+                                               prefix=os.path.splitext(os.path.basename(filename))[0].replace(' ', '_') + '__')
         
         # run segmentation algorithm
         res = sw(imin)
 
         # selection class        
-        sel = segmentation.basic.Select("./project_settings/settings_2015_09_18.py")
+        sel = segmentation.basic.Select(settings=self.settings, 
+                                        prefix=os.path.splitext(os.path.basename(filename))[0].replace(' ', '_') + '__')
 
         # run selection
         selected_cells = sel(imin, res, 1)

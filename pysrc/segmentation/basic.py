@@ -40,7 +40,7 @@ import skimage.draw
 #from jinja2.nodes import Pos
 
 class Select(object):
-    def __init__(self, settings_filename=None, settings=None):
+    def __init__(self, settings_filename=None, settings=None, prefix=''):
         if settings is None and settings_filename is None:
             raise ValueError("Either a settings object or a settings filename has to be given.")
         if not settings is None:
@@ -55,6 +55,7 @@ class Select(object):
 
         self.ov = Overlay()
         self.sw = SimpleWorkflow(settings=self.settings)
+        self.prefix=prefix
         
     def overlay_graph(self, img, labels=None):
         thickness = 3
@@ -62,7 +63,9 @@ class Select(object):
 
         if labels is None:
             labels = []
-            
+    
+        #img = self.sw.reduce_range(img_16bit)
+             
         colim = color.gray2rgb(img)
         if self.nodes is None:
             print 'graph is not yet built.'
@@ -88,7 +91,8 @@ class Select(object):
                     colim[rr,cc,i] = col
             
                     
-                    
+        #pdb.set_trace()
+        
         # second, we draw the graph labels
         for nodelabel, node in self.nodes.iteritems():                                           
             rr, cc = skimage.draw.circle(np.round(node['center'][0]), 
@@ -139,11 +143,11 @@ class Select(object):
         labels = watershed(distance, cell_labels, mask=mask)
 
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.cell_selection_folder, 'distance.png')
+            out_filename = os.path.join(self.settings.cell_selection_folder, '%sdistance.png' % self.prefix)
             temp = distance / distance.max()
             skimage.io.imsave(out_filename, temp)
 
-            out_filename = os.path.join(self.settings.cell_selection_folder, 'labels_from_ws.png')
+            out_filename = os.path.join(self.settings.cell_selection_folder, '%slabels_from_ws.png' % self.prefix)
             skimage.io.imsave(out_filename, labels)        
         
         return labels
@@ -313,10 +317,15 @@ class Select(object):
         chosen = filter(lambda x: self.nodes[x]['chosen'], self.nodes.keys())
         return chosen
     
-    def choose_labels(self, K, imin=None):        
+    def choose_labels(self, K, imin_param=None):        
         if self.settings.debug:
             for node_id, node in self.nodes.iteritems():
                 print '%i: %s' % (node_id, self.nodes[node_id]['neighbors'])
+
+        imin = imin_param            
+        if not imin_param is None:
+            if not imin_param.dtype == 'uint8': 
+                imin = self.sw.reduce_range(imin_param)
             
         # initialization
         Lres = []
@@ -357,11 +366,11 @@ class Select(object):
             # v has been selected.
             if self.settings.debug and not imin is None:
                 colim = self.overlay_graph(imin, labels=dict(zip(Lcand, [(230, 200, 0) for ttt in Lcand])))
-                skimage.io.imsave(os.path.join(self.settings.debug_graph_overlay, 'graph_overlay_candidate%03i_a.png' % r), colim)
+                skimage.io.imsave(os.path.join(self.settings.debug_graph_overlay, '%sgraph_overlay_candidate%03i_a.png' % (self.prefix, r)), colim)
             self.nodes[v]['chosen'] = True
             if self.settings.debug and not imin is None:
                 colim = self.overlay_graph(imin, labels=dict(zip(Lcand, [(230, 200, 0) for ttt in Lcand])))
-                skimage.io.imsave(os.path.join(self.settings.debug_graph_overlay, 'graph_overlay_candidate%03i_b.png' % r), colim)
+                skimage.io.imsave(os.path.join(self.settings.debug_graph_overlay, '%sgraph_overlay_candidate%03i_b.png' % (self.prefix, r)), colim)
 
             Lres.append(v)
 
@@ -392,7 +401,7 @@ class Select(object):
                 if self.settings.debug and not imin is None and k>0:
                     lc_filtered = filter(lambda x: self.nodes[x]['allowed'], Lcand)
                     colim = self.overlay_graph(imin, labels=dict(zip(lc_filtered, [(230, 200, 0) for ttt in lc_filtered])))
-                    skimage.io.imsave(os.path.join(self.settings.debug_graph_overlay, 'graph_overlay_candidate%03i_step%03i.png' % (r, k)), colim)
+                    skimage.io.imsave(os.path.join(self.settings.debug_graph_overlay, '%sgraph_overlay_candidate%03i_step%03i.png' % (self.prefix, r, k)), colim)
                 
                 Q1 = Q2
                 Q2 = Queue()
@@ -450,7 +459,7 @@ class Select(object):
 
         if self.settings.debug:
             skimage.io.imsave(os.path.join(self.settings.debug_folder, 
-                                           'basis_for_graph.png'), labels)
+                                           '%sbasis_for_graph.png' % self.prefix), labels)
         
         # find the co-occurence matrix. 
         # The co-occurence matrix informs us about the neighboring relationships.
@@ -510,7 +519,7 @@ class Overlay(object):
     
 class SimpleWorkflow(object):
     
-    def __init__(self, settings_filename=None, settings=None):
+    def __init__(self, settings_filename=None, settings=None, prefix=''):
         if settings is None and settings_filename is None:
             raise ValueError("Either a settings object or a settings filename has to be given.")
         if not settings is None:
@@ -524,9 +533,7 @@ class SimpleWorkflow(object):
                 os.makedirs(folder)
 
         self.ov = Overlay()
-        
-        # for VIGRA
-        #self.ut = utilities.Utilities()
+        self.prefix=prefix
                               
     def __call__(self, img_16bit):
         
@@ -548,10 +555,10 @@ class SimpleWorkflow(object):
                 else:
                     index = np.max(already_done) + 1
                 
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__01_original.png' % index) 
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__01_original.png' % (self.prefix, index) )
             skimage.io.imsave(out_filename, img)
 
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__02_prefiltered.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__02_prefiltered.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, pref)
             
         
@@ -559,10 +566,10 @@ class SimpleWorkflow(object):
         hmax = self.homogenize(pref)
         
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__03_bgsub.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__03_bgsub.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, bgsub)
 
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__04_hmax.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__04_hmax.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, hmax)
 
         
@@ -583,20 +590,20 @@ class SimpleWorkflow(object):
 
         #pdb.set_trace()
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__05_local_adaptive_threshold.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__05_local_adaptive_threshold.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, segmentation_result)
 
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__06_seghmax.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__06_seghmax.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, seg_hmax)
 
         segmentation_result[seg_hmax>0] = 255
                 
         if self.settings.debug:            
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__07_segres.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__07_segres.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, segmentation_result)
 
             overlay_img = self.ov.to_gray_scale(img, segmentation_result, (1.0, 0.0, 0.0), 0.8)
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__08_overlay_both.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__08_overlay_both.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, overlay_img)
                     
         # split
@@ -607,42 +614,42 @@ class SimpleWorkflow(object):
         res[wsl>0] = 0
 
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__09_after_split.png' % index)
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__09_after_split.png' % (self.prefix, index))
             skimage.io.imsave(out_filename, res)
 
             overlay_img = self.ov.to_gray_scale(img, res, (1.0, 0.0, 0.0), 0.8)
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__10_overlay_after_split.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__10_overlay_after_split.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, overlay_img)
         
         # postfiltering
         res = self.postfilter(res, img)
 
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__11_postfilter.png' % index)
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__11_postfilter.png' % (self.prefix, index))
             skimage.io.imsave(out_filename, res)
 
             overlay_img = self.ov.to_gray_scale(img, res, (1.0, 0.0, 0.0), 0.8)
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__12_overlay_postfilter.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__12_overlay_postfilter.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, overlay_img)
 
             final_label = label(res, neighbors=4, background=0)
             final_label = final_label - final_label.min()
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__12bis_labels_after_postfilter.png' % index)
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__12bis_labels_after_postfilter.png' % (self.prefix, index))
             skimage.io.imsave(out_filename, final_label)
 
         res = self.remove_border_objects(res)
 
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__13_border_obj_removed.png' % index)
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__13_border_obj_removed.png' % (self.prefix, index))
             skimage.io.imsave(out_filename, res)
 
             overlay_img = self.ov.to_gray_scale(img, res, (1.0, 0.0, 0.0), 0.8)
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__14_overlay_border_obj_removed.png' % index)                                                                                
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__14_overlay_border_obj_removed.png' % (self.prefix, index))                                                                                
             skimage.io.imsave(out_filename, overlay_img)
 
             final_label = label(res, neighbors=4, background=0)
             final_label = final_label - final_label.min()
-            out_filename = os.path.join(self.settings.debug_folder, '%03i__15_final_label.png' % index)
+            out_filename = os.path.join(self.settings.debug_folder, '%s%03i__15_final_label.png' % (self.prefix, index))
             skimage.io.imsave(out_filename, final_label)
             
         return res
@@ -732,7 +739,7 @@ class SimpleWorkflow(object):
         wsl[wsl_remove>0] = 0
 
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.debug_folder, 'wsl_remove2.png')
+            out_filename = os.path.join(self.settings.debug_folder, '%swsl_remove2.png' % self.prefix)
             skimage.io.imsave(out_filename, wsl_remove.astype(np.dtype('uint8')))        
 
         return wsl
@@ -750,10 +757,10 @@ class SimpleWorkflow(object):
         #local_maxima[local_maxima>0] = 255
         
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.debug_folder, 'distance_function.png')
+            out_filename = os.path.join(self.settings.debug_folder, '%sdistance_function.png' % self.prefix)
             skimage.io.imsave(out_filename, distance.astype(np.dtype('uint8')))
 
-            out_filename = os.path.join(self.settings.debug_folder, 'local_maxima.png')
+            out_filename = os.path.join(self.settings.debug_folder, '%slocal_maxima.png' % self.prefix)
             lm = local_maxima.astype(np.dtype('uint8'))
             lm[lm>0] = 255
             skimage.io.imsave(out_filename, lm)

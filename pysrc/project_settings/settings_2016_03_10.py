@@ -2,11 +2,37 @@
 data_folder = '/Users/twalter/data/Perrine/max_proj'
 result_folder = '/Users/twalter/data/Perrine/results'
 
-segmentation_folder = os.path.join(result_folder, 'segmentation')
-cell_selection_folder = os.path.join(result_folder, 'cell_selection')
-debug_folder = os.path.join(result_folder, 'debug')
-debug_prefilter_test = os.path.join(result_folder, 'prefilter_test')
-debug_graph_overlay = os.path.join(debug_folder, 'graph_overlay')
+img_debug_folder = os.path.join(result_folder, 'img_debug')
+img_graph_overlay_folder = os.path.join(result_folder, 'img_graph_overlay') 
+img_single_output_folder = os.path.join(result_folder, 'img_chosen_cells')
+coordinate_folder = os.path.join(result_folder, 'coordinates')
+metamorph_folder = os.path.join(result_folder, 'metamorph')
+
+make_folder = [img_debug_folder,
+               img_graph_overlay_folder, 
+               img_single_output_folder, 
+               coordinate_folder,
+               metamorph_folder]
+
+img_debug_folder_sub = 'img_debug'
+img_graph_overlay_folder_sub = 'img_graph_overlay'
+img_single_output_folder_sub = 'img_chosen_cells'
+coordinate_folder_sub = 'coordinates'
+metamorph_folder_sub = 'metamorph'
+
+    
+debug = False
+debug_screen_output = False
+graph_overlay = False
+single_mask = True
+coordinate_file = True
+metamorph_export = True
+
+# segmentation_folder = os.path.join(result_folder, 'segmentation')
+# cell_selection_folder = os.path.join(result_folder, 'cell_selection')
+# debug_folder = os.path.join(result_folder, 'debug')
+# debug_prefilter_test = os.path.join(result_folder, 'prefilter_test')
+#debug_graph_overlay = os.path.join(debug_folder, 'graph_overlay')
 
 prefilter_settings = {'median': {'median_size': 2,},
                       'avg': {'avg_size': 2,},
@@ -72,10 +98,5 @@ graph_color_code = {0: (0, 200, 10), # node is chosen
                     }
 
 
-debug = True
-make_folder = [segmentation_folder,
-               cell_selection_folder, 
-               debug_folder, 
-               debug_prefilter_test,
-               debug_graph_overlay]
+
 

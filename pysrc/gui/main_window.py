@@ -3,6 +3,7 @@ GUI for Cell Grid Illumination
 """
 
 import os, sys, time
+sys.path.append('../..')
 
 from Tkinter import *
 from ttk import *
@@ -10,7 +11,9 @@ from ttk import *
 import tkFileDialog 
 import tkMessageBox as mbox
 
-import segmentation.make_selection
+from segmentation import make_selection
+
+from settings import *
 
 class MainForm(Frame):
   
@@ -83,27 +86,59 @@ class MainForm(Frame):
             mbox.showwarning('Warning', 'Some value was not correctly entered. Processing was not started.')
             return
 
-        ana = make_selection.Analyzer(gui_settings['settings_filename'])
-        ana.process_folder(gui_settings['input_folder'], gui_settings['output_folder'])
+        # read settings
+        settings = Settings(os.path.abspath(gui_settings['settings_filename']), dctGlobals=globals())
+
+        old_result_folder = settings.result_folder
         
+        # overwrite settings from gui_settings        
+        settings.debug = gui_settings['make_debug_images']
+        settings.graph_overlay = gui_settings['make_overlay_images']
+        settings.single_mask = gui_settings['make_final_image']
+        settings.coordinate_file = gui_settings['make_coordinate_file']
+        settings.metamorph_export = gui_settings['make_metamorph_file']
+        settings.data_folder = gui_settings['input_folder']
+        settings.result_folder = gui_settings['output_folder']
+        
+        # This is bad ... 
+        result_folder = settings.result_folder
+        settings.img_debug_folder = os.path.join(result_folder, 'img_debug')
+        settings.img_graph_overlay_folder = os.path.join(result_folder, 'img_graph_overlay') 
+        settings.img_single_output_folder = os.path.join(result_folder, 'img_chosen_cells')
+        settings.coordinate_folder = os.path.join(result_folder, 'coordinates')
+        settings.metamorph_folder = os.path.join(result_folder, 'metamorph')
+        settings.make_folder = [
+                                settings.img_debug_folder,
+                                settings.img_graph_overlay_folder, 
+                                settings.img_single_output_folder,
+                                settings.coordinate_folder,
+                                settings.metamorph_folder,
+                                ]
+                        
+        # start processing
+        # TODO : multithreading
+        ana = make_selection.Analyzer(settings=settings)
+        ana.process_folder(gui_settings['input_folder'])
+
         return
     
     def get_settings(self):
         self.settings = {}
 
         # read out all the settings and start the scripts.         
-        self.input_folder = self.input_folder_tk.get()
+        self.input_folder = self.input_folder_tk.get().rstrip('\n')
+        
         if not os.path.isdir(self.input_folder): 
             mbox.showerror("Error", "Input Folder does not exist.")
             return None
         self.settings['input_folder'] = self.input_folder
                 
-        self.output_folder = self.output_folder_tk.get()
+        self.output_folder = self.output_folder_tk.get().rstrip('\n')
         if not os.path.isdir(self.output_folder):
             os.makedirs(self.output_folder)
         self.settings['output_folder'] = self.output_folder
         
-        self.settings_filename = self.settings_filename_tk.get()
+        self.settings_filename = self.settings_filename_tk.get().rstrip('\n')
         if not os.path.isfile(self.settings_filename):
             mbox.showerror("Error", "Settings file not found.")
             return None
@@ -132,7 +167,21 @@ class MainForm(Frame):
         self.settings['make_overlay_images'] = self.output_generate_graph_images_tk.get() == 1
         self.settings['make_final_image'] = self.output_generate_final_mask_tk.get() == 1
         
+        print 
+        print 'The Following settings were read: '
+        for key, entry in self.settings.iteritems():
+            print '%s: %s' % (key, str(entry))
+            
         return self.settings
+    
+#     def read_local_gui_settings(self):
+#         # get the current directory
+#         filename = inspect.getframeinfo(inspect.currentframe()).filename
+#         path = os.path.dirname(os.path.abspath(filename))
+#         
+#         filename = os.path.join(path, 'last_settings.txt')
+#         
+#         return
     
     def initUI(self):
 
@@ -221,12 +270,13 @@ def main():
   
     root = Tk()
     root.geometry("880x600+300+300")
-    #root.wm_iconbitmap(os.path.join('..','..','resources','Grill.ico'))
+    root.wm_iconbitmap('SelectiveIllu.icns')
     app = MainForm(root)
     root.mainloop()  
 
 
 if __name__ == '__main__':
+    
     main()  
     
     

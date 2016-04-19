@@ -1,3 +1,5 @@
+setup/dist
+setup/build
 setup.cfg
 setup.cfg.*
 .Rhistory

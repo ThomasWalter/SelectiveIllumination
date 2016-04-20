@@ -188,8 +188,8 @@ class MainForm(Frame):
         self.parent.title("Cell Grid Illumination")
 
         st = Style()
-        st.theme_use('aqua')
-        self.parent.configure(bg='#ececec')
+        st.theme_use('alt')
+        self.parent.configure(bg='#d9d9d9')
         master = self.parent
 
         input_settings = LabelFrame(self.parent, text="Input Settings")       
@@ -264,13 +264,17 @@ class MainForm(Frame):
         self.update()
         
         return
-    
+
+#resource_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", "setup")
     
 def main():
   
     root = Tk()
     root.geometry("880x600+300+300")
-    root.wm_iconbitmap('SelectiveIllu.icns')
+    #root.wm_iconbitmap(os.path.join(resource_folder, 'SelectiveIllu.ico'))
+    #filename = r"C:\Users\Thomas\src\SelectiveIllumination\setup\SelectiveIllu.ico"
+    #print os.path.isfile(filename)
+    #root.wm_iconbitmap('SelectiveIllu.ico')
     app = MainForm(root)
     root.mainloop()  
 

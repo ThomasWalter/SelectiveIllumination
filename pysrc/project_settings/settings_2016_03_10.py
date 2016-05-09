@@ -28,6 +28,11 @@ single_mask = True
 coordinate_file = True
 metamorph_export = True
 
+param_pixel_size = 0.32
+param_offset = 0.0
+cluster_size = 1
+cluster_dist = 1
+
 # segmentation_folder = os.path.join(result_folder, 'segmentation')
 # cell_selection_folder = os.path.join(result_folder, 'cell_selection')
 # debug_folder = os.path.join(result_folder, 'debug')

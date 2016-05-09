@@ -77,7 +77,7 @@ class SimpleWorkflow(object):
     def __call__(self, img_16bit):
         
         print '16 bit --> 8 bit'
-        img = self.reduce_range(img_16bit)
+        img = self.reduce_range(img_16bit, minmax=True)
         
         print 'prefiltering'
         pref = self.prefilter(img, self.settings.segmentation_settings['prefiltering'])
@@ -549,8 +549,8 @@ class BatchProcessor(object):
 
         self.segmenter = SimpleWorkflow(settings=self.settings)
         #self.ut = utilities.Utilities()
-
         
+    
     def __call__(self, filenames=None):
         if filenames is None:
             filenames = filter(lambda x: os.path.splitext(x)[-1] in ['.tif', '.tiff', '.TIFF', '.TIF'], 

@@ -11,6 +11,7 @@ from settings import *
 
 import segmentation.basic
 import segmentation.selection
+from lxml.html.builder import IMG
 
 
 class Analyzer(object):
@@ -49,10 +50,14 @@ class Analyzer(object):
 
         # read original image
         img = skimage.io.imread(filename)
-        t1 = np.max(img, axis=3)
+
+        if len(img.shape) > 2:
+            t1 = np.max(img, axis=3)
         
-        # make max projection
-        imin = np.max(t1, axis=0)        
+            # make max projection
+            imin = np.max(t1, axis=0)
+        else:
+            imin = img
         sw = segmentation.basic.SimpleWorkflow(settings=self.settings, 
                                                prefix=os.path.splitext(os.path.basename(filename))[0].replace(' ', '_') + '__')
         
@@ -66,15 +71,21 @@ class Analyzer(object):
         # run selection
         selected_cells = sel(imin, res, 1)
         
+        # get the header information
+        x, y, z = sel.read_header(filename)
+        
         # write to text file
         if self.settings.coordinate_file:
-            out_filename = os.path.join(self.settings.coordinate_folder, 'centers_%s.txt' % os.path.splitext(os.path.basename(filename))[0].replace(' ', '_'))
-            sel.centers_to_text_file(selected_cells, out_filename)
+            out_filename = os.path.join(self.settings.coordinate_folder, 'centers_px_%s.txt' % os.path.splitext(os.path.basename(filename))[0].replace(' ', '_'))
+            sel.centers_to_px_text_file(selected_cells, out_filename)
+
+            #out_filename = os.path.join(self.settings.coordinate_folder, 'centers_%s.txt' % os.path.splitext(os.path.basename(filename))[0].replace(' ', '_'))
+            #sel.centers_to_text_file(selected_cells, out_filename)
         
         # write to metamorph
         if self.settings.metamorph_export:
             out_filename = os.path.join(self.settings.metamorph_folder, 'metamorph_%s.stg' % os.path.splitext(os.path.basename(filename))[0].replace(' ', '_'))
-            sel.export_metamorph(selected_cells, out_filename)
+            sel.export_metamorph(selected_cells, out_filename, stage_coord=(x, y, z))
             
         return
     

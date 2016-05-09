@@ -19,14 +19,17 @@ class MainForm(Frame):
   
     def __init__(self, parent):
 
-        self.intput_folder = ''
+        self.input_folder = '/Users/twalter/data/Perrine/sample_data'
         self.input_folder_tk = StringVar()        
-
-        self.output_folder = ''
+        self.input_folder_tk.set(self.input_folder)
+        
+        self.output_folder = '/Users/twalter/data/Perrine/result_test'
         self.output_folder_tk = StringVar()
-
-        self.settings_filename = ''
+        self.output_folder_tk.set(self.output_folder)
+        
+        self.settings_filename = '/Users/twalter/workspace/SelectiveIllumination/pysrc/project_settings/settings_2016_03_10.py'
         self.settings_filename_tk = StringVar()
+        self.settings_filename_tk.set(self.settings_filename)
         
         self.output_generate_graph_images = False
         self.output_generate_graph_images_tk = IntVar()
@@ -47,8 +50,11 @@ class MainForm(Frame):
         self.param_clustersize_tk.set('1')      
         self.param_dist_tk = StringVar()
         self.param_dist_tk.set('1')
+        self.param_pixel_size_tk = StringVar()
+        self.param_pixel_size_tk.set('0.32')
+        
         self.param_random_selection_tk = IntVar()
-
+        
         Frame.__init__(self, parent)            
         self.parent = parent
         self.initUI()
@@ -99,6 +105,9 @@ class MainForm(Frame):
         settings.metamorph_export = gui_settings['make_metamorph_file']
         settings.data_folder = gui_settings['input_folder']
         settings.result_folder = gui_settings['output_folder']
+        settings.pixel_size = gui_settings['param_pixel_size']
+        settings.cluster_dist = gui_settings['cluster_dist']
+        settings.cluster_size = gui_settings['cluster_size']
         
         # This is bad ... 
         result_folder = settings.result_folder
@@ -157,6 +166,17 @@ class MainForm(Frame):
             mbox.showerror("Error", "Value for distance between clusters is not valid. Please enter an integer.")
             return None
         self.settings['cluster_dist'] = cluster_dist
+
+        try:    
+            param_pixel_size = float(self.param_pixel_size_tk.get())
+            if param_pixel_size <= 0.0:
+                mbox.showerror("Error", "Value for pixel size not valid. Please enter a positive float.")
+                return None
+        except:
+            mbox.showerror("Error", "Value for pixel size not valid. Please enter a positive float.")
+            return None
+        self.settings['param_pixel_size'] = param_pixel_size
+
 
         self.settings['random_cell_selection'] = self.param_random_selection_tk.get() == 1
 
@@ -233,33 +253,52 @@ class MainForm(Frame):
         # parameters
         Label(parameter_settings, text="Cluster size").grid(row=3, sticky=W)
         Label(parameter_settings, text="Cluster distance").grid(row=4, sticky=W)
+        Label(parameter_settings, text="Pixel size").grid(row=5, sticky=W)
 
         self.e4 = Entry(parameter_settings, text=self.param_clustersize_tk) 
         self.e5 = Entry(parameter_settings, text=self.param_dist_tk) 
+        self.e6 = Entry(parameter_settings, text=self.param_pixel_size_tk) 
+
         self.cb_random_selection = Checkbutton(output_settings, text="Random Cell Selection", variable=self.param_random_selection_tk)
 
-        self.e4.grid(row=3, column=1, sticky=W)
-        self.e5.grid(row=4, column=1, sticky=W)
-        self.cb_random_selection.grid(row=5, column=0, sticky=W)
-                
+        # current row_index is 3. 
+        row_index = 3
+
+        self.e4.grid(row=row_index, column=1, sticky=W)
+        row_index += 1
+
+        self.e5.grid(row=row_index, column=1, sticky=W)
+        row_index += 1
+
+        self.e6.grid(row=row_index, column=1, sticky=W)
+        row_index += 1
+        
+        self.cb_random_selection.grid(row=row_index, column=0, sticky=W)
+        row_index += 1        
+
         # output        
         self.cb_output_generate_graph_images = Checkbutton(output_settings, text="Generate Graph Images", variable=self.output_generate_graph_images_tk)
-        self.cb_output_generate_graph_images.grid(row=6, column=0, sticky=W, pady=4)
-
-        self.cb_output_generate_debug_images = Checkbutton(output_settings, text="Generate All Intermediate Images", variable=self.output_generate_debug_images_tk)
-        self.cb_output_generate_debug_images.grid(row=7, column=0, sticky=W, pady=4)
-
-        self.cb_output_generate_final_mask = Checkbutton(output_settings, text="Generate Final Mask (single image)", variable=self.output_generate_final_mask_tk)
-        self.cb_output_generate_final_mask.grid(row=8, column=0, sticky=W, pady=4)
-
-        self.cb_output_generate_coordinate_file = Checkbutton(output_settings, text="Generate Coordinate Text ile", variable=self.output_generate_coordinate_file_tk)
-        self.cb_output_generate_coordinate_file.grid(row=9, column=0, sticky=W, pady=4)
-
-        self.cb_output_generate_metamorph_file = Checkbutton(output_settings, text="Generate Metamorph File", variable=self.output_generate_metamorph_file_tk)
-        self.cb_output_generate_metamorph_file.grid(row=10, column=0, sticky=W, pady=4)
+        self.cb_output_generate_graph_images.grid(row=row_index, column=0, sticky=W, pady=4)
+        row_index += 1
         
-        Button(down_buttons, text='Start', command=self.onStart).grid(row=11, column=0, sticky=W, pady=4, padx=4)
-        Button(down_buttons, text='Close', command=master.quit).grid(row=11, column=1, sticky=W, pady=4, padx=4)
+        self.cb_output_generate_debug_images = Checkbutton(output_settings, text="Generate All Intermediate Images", variable=self.output_generate_debug_images_tk)
+        self.cb_output_generate_debug_images.grid(row=row_index, column=0, sticky=W, pady=4)
+        row_index += 1
+        
+        self.cb_output_generate_final_mask = Checkbutton(output_settings, text="Generate Final Mask (single image)", variable=self.output_generate_final_mask_tk)
+        self.cb_output_generate_final_mask.grid(row=row_index, column=0, sticky=W, pady=4)
+        row_index += 1
+        
+        self.cb_output_generate_coordinate_file = Checkbutton(output_settings, text="Generate Coordinate Text ile", variable=self.output_generate_coordinate_file_tk)
+        self.cb_output_generate_coordinate_file.grid(row=row_index, column=0, sticky=W, pady=4)
+        row_index += 1
+        
+        self.cb_output_generate_metamorph_file = Checkbutton(output_settings, text="Generate Metamorph File", variable=self.output_generate_metamorph_file_tk)
+        self.cb_output_generate_metamorph_file.grid(row=row_index, column=0, sticky=W, pady=4)
+        row_index += 1
+        
+        Button(down_buttons, text='Start', command=self.onStart).grid(row=row_index, column=0, sticky=W, pady=4, padx=4)
+        Button(down_buttons, text='Close', command=master.quit).grid(row=row_index, column=1, sticky=W, pady=4, padx=4)
         
         self.update()
         

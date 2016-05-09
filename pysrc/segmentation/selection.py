@@ -21,6 +21,10 @@ from scipy import ndimage as ndi
 
 from Queue import Queue
 
+import pdb
+
+from PIL import Image
+import xml.etree.ElementTree as ET
 
 class Select(object):
     def __init__(self, settings_filename=None, settings=None, prefix=''):
@@ -132,6 +136,33 @@ class Select(object):
         
         return cell_labels, labels
     
+    def read_header(self, filename):
+        
+        impil = Image.open(filename)  
+          
+        tagged_string = impil.tag.tagdata[270]
+        root = ET.fromstring(tagged_string.strip('\x00'))
+        subtree = root.find('PlaneInfo')
+        properties = subtree.findall('prop')
+        #<prop id="stage-position-x" type="float" value="18988"/>
+        #<prop id="stage-position-y" type="float" value="15355"/>
+        #<prop id="stage-label" type="string" value=""/>
+        #<prop id="z-position" type="float" value="-1392.99"/>
+
+        x = None
+        y = None
+        z = None
+        for pr in properties: 
+            if 'id' in pr.attrib and pr.attrib['id'] == 'z-position':
+                z = float(pr.attrib['value'])
+            if 'id' in pr.attrib and pr.attrib['id'] == 'stage-position-x':
+                x = float(pr.attrib['value'])
+            if 'id' in pr.attrib and pr.attrib['id'] == 'stage-position-y':
+                y = float(pr.attrib['value'])
+        
+        print 'x %f, y %f, z %f ' % (x, y, z)
+        return x, y, z
+
     def get_properties(self, imbin, img):
         props = {}
         cell_labels = label(imbin, neighbors=4, background=0)
@@ -405,6 +436,22 @@ class Select(object):
         # get the centers
         labels = label(imout, neighbors=4, background=0)
         properties = measure.regionprops(labels, imout)
+        #pdb.set_trace()
+        centers = [(0.0, 0.0)] + [ (pr.centroid[0] * self.settings.param_pixel_size, 
+                                    pr.centroid[1] * self.settings.param_pixel_size)
+                                  for pr in properties]
+        
+        fp = open(filename, 'w')
+        for x,y in centers[1:]:
+            fp.write('%f\t%f\n' % (x,y))
+        fp.close()
+        
+        return
+
+    def centers_to_px_text_file(self, imout, filename):
+        # get the centers
+        labels = label(imout, neighbors=4, background=0)
+        properties = measure.regionprops(labels, imout)
         centers = [(0.0, 0.0)] + [pr.centroid for pr in properties]
         
         fp = open(filename, 'w')
@@ -414,11 +461,22 @@ class Select(object):
         
         return
 
-    def export_metamorph(self, imout, filename):
+    def export_metamorph(self, imout, filename, stage_coord=None):
+        
+        if stage_coord is None:
+            stage_coord = (0, 0, 0)
+            
         # get the centers
         labels = label(imout, neighbors=4, background=0)
         properties = measure.regionprops(labels, imout)
-        centers = [(0.0, 0.0)] + [pr.centroid for pr in properties]
+
+        # check centers
+        for pr in properties:
+            print 'image coordinates (pixel) : %i, %i' % (pr.centroid[0], pr.centroid[1])
+            
+        centers = [(0.0, 0.0)] + [ (pr.centroid[0] * self.settings.param_pixel_size, 
+                                    pr.centroid[1] * self.settings.param_pixel_size)
+                                  for pr in properties]
         nb_cells = len(centers) -1 
 
         # write the information in a metamorph .stg format.        
@@ -428,9 +486,18 @@ class Select(object):
         fp.write('0\n')
         fp.write('%i\n' % nb_cells)
         
+        # image dimension in micrometer
+        w = imout.shape[1] * self.settings.param_pixel_size
+        h = imout.shape[0] * self.settings.param_pixel_size        
+    
+        print w, h    
         i = 1
-        for x,y in centers[1:]:
-            tempStr = '"Cell%i", %i, %i, 0, 0, 0, FALSE, -9999, TRUE, TRUE, 0, -1, ""\n' % (i, x, y)
+        for y, x in centers[1:]:
+            x_o = stage_coord[0] + y - h / 2.0
+            y_o = stage_coord[1] + w / 2.0 - x
+            z_o = stage_coord[2]
+            print x, y, ' ---> ', x_o, y_o, z_o
+            tempStr = '"Cell%i", %f, %f, %f, 0, 0, FALSE, -9999, TRUE, TRUE, 0, -1, ""\n' % (i, x_o, y_o, z_o)
             fp.write(tempStr)
             i += 1
         fp.close()

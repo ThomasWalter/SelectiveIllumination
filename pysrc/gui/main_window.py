@@ -19,15 +19,15 @@ class MainForm(Frame):
   
     def __init__(self, parent):
 
-        self.input_folder = '/Users/twalter/data/Perrine/sample_data'
+        self.input_folder = '/Users/twalter/data/Perrine/data_May_2016/20x_sample'
         self.input_folder_tk = StringVar()        
         self.input_folder_tk.set(self.input_folder)
         
-        self.output_folder = '/Users/twalter/data/Perrine/result_test'
+        self.output_folder = '/Users/twalter/data/Perrine/results_May_2016/20x'
         self.output_folder_tk = StringVar()
         self.output_folder_tk.set(self.output_folder)
         
-        self.settings_filename = '/Users/twalter/workspace/SelectiveIllumination/pysrc/project_settings/settings_2016_03_10.py'
+        self.settings_filename = '/Users/twalter/workspace/SelectiveIllumination/pysrc/project_settings/settings_2016_05_20x.py'
         self.settings_filename_tk = StringVar()
         self.settings_filename_tk.set(self.settings_filename)
         

@@ -29,6 +29,7 @@ from Queue import Queue
 import pdb
 
 import skimage.draw
+from lxml.html.builder import IMG
 
 
 class Overlay(object):
@@ -126,10 +127,22 @@ class SimpleWorkflow(object):
             out_filename = os.path.join(self.settings.img_debug_folder, '%s06_seghmax.png' % self.prefix)
             skimage.io.imsave(out_filename, seg_hmax)
 
+        # final segmentation (before split)
         segmentation_result[seg_hmax>0] = 255
-                
+
         if self.settings.debug:            
             out_filename = os.path.join(self.settings.img_debug_folder, '%s07_segres.png' % self.prefix)
+            skimage.io.imsave(out_filename, segmentation_result)
+
+        # hole filling: 
+        temp = segmentation_result.copy()
+        se = disk(self.settings.segmentation_settings['hole_size'])
+        dil = morphology.dilation(temp, se)
+        segmentation_result = morphology.reconstruction(dil, temp, method='erosion')
+        segmentation_result = segmentation_result.astype(temp.dtype)
+        
+        if self.settings.debug:            
+            out_filename = os.path.join(self.settings.img_debug_folder, '%s07_segres_holes_filled.png' % self.prefix)
             skimage.io.imsave(out_filename, segmentation_result)
 
             overlay_img = self.ov.to_gray_scale(img, segmentation_result, (1.0, 0.0, 0.0), 0.8)
@@ -200,6 +213,15 @@ class SimpleWorkflow(object):
         res = np.zeros(labelimage.shape)
         res[grad>0] = 255
         return res
+
+    def get_external_wsl(self, labelimage):
+        #se = morphology.square(3)
+        se = morphology.diamond(1)
+        dil = morphology.dilation(labelimage, se)
+        grad = dil - labelimage
+        res = np.zeros(labelimage.shape)
+        res[grad>0] = 255
+        return res
     
     def remove_border_objects(self, imbin):
         labelim = label(imbin, neighbors=4, background=0)
@@ -213,27 +235,29 @@ class SimpleWorkflow(object):
         
         border_filter = np.where(border_counts > 0, 255, 0)
         
-        to_remove = border_filter[labelim]        
+        to_remove = border_filter[labelim]   
         imbin[to_remove>0] = 0        
         
         return imbin
     
+    # arguments : segmentation_result, labres, img
     def filter_wsl(self, imbin, ws_labels, imin):
         
         # internal gradient of the cells: 
         se = morphology.diamond(1)
-        ero = morphology.erosion(imbin, se)        
-        grad = imbin - ero
+        #ero = morphology.erosion(imbin, se)        
+        #grad = imbin - ero
         
         # watershed line        
-        wsl = self.get_internal_wsl(ws_labels)
+        wsl = self.get_external_wsl(ws_labels)
+        #wsl = self.get_large_wsl(ws_labels)
         wsl_remove = wsl.copy()
 
         # watershed line outside the cells is 0
         wsl_remove[imbin==0] = 0
         # watershed line on the gradient (border of objects)
         # is also not considered
-        wsl_remove[grad>0] = 0
+        #wsl_remove[grad>0] = 0
                 
         # gradient image
         pref = 255 * filters.gaussian_filter(imin, 3.0)
@@ -245,14 +269,16 @@ class SimpleWorkflow(object):
         grad_filtered = grad
         
         if self.settings.debug:
+            out_filename = os.path.join(self.settings.img_debug_folder, '%s09_watershed_regions.png' % self.prefix)
+            skimage.io.imsave(out_filename, ws_labels.astype(np.dtype('uint8')))        
+
             out_filename = os.path.join(self.settings.img_debug_folder, '%s09_wsl.png' % self.prefix)
             skimage.io.imsave(out_filename, wsl.astype(np.dtype('uint8')))        
 
             out_filename = os.path.join(self.settings.img_debug_folder, '%s09_wsl_remove.png' % self.prefix)
             skimage.io.imsave(out_filename, wsl_remove.astype(np.dtype('uint8')))        
 
-            out_filename = os.path.join(self.settings.img_debug_folder, '%s09_wsl_gradient.png' % self.prefix)
-            
+            out_filename = os.path.join(self.settings.img_debug_folder, '%s09_wsl_gradient.png' % self.prefix)            
             skimage.io.imsave(out_filename, grad_filtered.astype(np.dtype('uint8')))        
         
         labimage = label(wsl_remove)
@@ -263,12 +289,12 @@ class SimpleWorkflow(object):
         filter_intensities[0] = 0
         
         wsl_remove = filter_intensities[labimage]
-        print filter_intensities
-        print mean_intensities
+        #print filter_intensities
+        #print mean_intensities
         wsl[wsl_remove>0] = 0
 
         if self.settings.debug:
-            out_filename = os.path.join(self.settings.img_debug_folder, '%s09wsl_remove2.png' % self.prefix)
+            out_filename = os.path.join(self.settings.img_debug_folder, '%s09_wsl_remove2.png' % self.prefix)
             skimage.io.imsave(out_filename, wsl_remove.astype(np.dtype('uint8')))        
 
         return wsl
@@ -278,7 +304,11 @@ class SimpleWorkflow(object):
         
         distance = ndi.distance_transform_edt(segres)
         
-        distance_filtered = filters.gaussian_filter(distance, ssc['sigma'])
+        if ssc['sigma'] > 0 : 
+            distance_filtered = filters.gaussian_filter(distance, ssc['sigma'])
+        else: 
+            distance_filtered = distance
+
         local_maxima = self.local_maxima(distance_filtered, ssc['h'])
         #local_maxima = peak_local_max(distance_filtered, indices=False, 
         #                              footprint=np.ones((3, 3)), 
@@ -289,6 +319,9 @@ class SimpleWorkflow(object):
             out_filename = os.path.join(self.settings.img_debug_folder, '%s09_distance_function.png' % self.prefix)
             skimage.io.imsave(out_filename, distance.astype(np.dtype('uint8')))
 
+            out_filename = os.path.join(self.settings.img_debug_folder, '%s09b_distance_filtered.png' % self.prefix)
+            skimage.io.imsave(out_filename, distance_filtered.astype(np.dtype('uint8')))
+
             out_filename = os.path.join(self.settings.img_debug_folder, '%s10_local_maxima.png' % self.prefix)
             lm = local_maxima.astype(np.dtype('uint8'))
             lm[lm>0] = 255
@@ -297,7 +330,7 @@ class SimpleWorkflow(object):
 
         #local_maxi = peak_local_max(distance, indices=False, footprint=np.ones((3, 3)),
         #                            labels=image)
-        dist_img = distance.max() - distance
+        dist_img = distance_filtered.max() - distance_filtered
         dist_img = dist_img.astype(np.dtype('int64'))
         markers = label(local_maxima)
         labels = watershed(dist_img, markers, mask=segres)
@@ -509,21 +542,30 @@ class SimpleWorkflow(object):
             pref = rec2.astype(img.dtype)            
 
         elif method=='med_denbi_asfrec':
-            radius = ps['median_size']
-            pref = rank.median(img, disk(radius))
-            
+            if ps['median_size'] > 1:
+                radius = ps['median_size']
+                pref = rank.median(img, disk(radius))
+            else:
+                pref = img
+ 
             temp = restoration.denoise_bilateral(pref, ps['win_size'], ps['sigma_signal'], ps['sigma_space'], ps['bins'], 
                                                  mode='constant', cval=0, multichannel=False)
             temp = 255 * temp
             temp = temp.astype(img.dtype)
             
-            se = disk(ps['close_size'])
-            dil = morphology.dilation(temp, se)
-            rec = morphology.reconstruction(dil, temp, method='erosion')
-
-            se = disk(ps['open_size'])
-            ero = morphology.erosion(rec, se)
-            rec2 = morphology.reconstruction(ero, rec, method='dilation')
+            if ps['close_size'] > 0 : 
+                se = disk(ps['close_size'])
+                dil = morphology.dilation(temp, se)
+                rec = morphology.reconstruction(dil, temp, method='erosion')
+            else:
+                rec = temp
+                
+            if ps['open_size'] > 0:
+                se = disk(ps['open_size'])
+                ero = morphology.erosion(rec, se)
+                rec2 = morphology.reconstruction(ero, rec, method='dilation')
+            else:
+                rec2 = rec
             
             # reconstruction gives back a float image (for whatever reason). 
             pref = rec2.astype(img.dtype)            

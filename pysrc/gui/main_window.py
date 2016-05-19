@@ -105,7 +105,7 @@ class MainForm(Frame):
         settings.metamorph_export = gui_settings['make_metamorph_file']
         settings.data_folder = gui_settings['input_folder']
         settings.result_folder = gui_settings['output_folder']
-        settings.pixel_size = gui_settings['param_pixel_size']
+        settings.param_pixel_size = gui_settings['param_pixel_size']
         settings.cluster_dist = gui_settings['cluster_dist']
         settings.cluster_size = gui_settings['cluster_size']
         

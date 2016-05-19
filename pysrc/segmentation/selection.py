@@ -271,17 +271,94 @@ class Select(object):
             lb = None
  
         return lb
+
+    def select_cluster_nodes(self, labels=None):
+        
+        if labels is None:
+            # in this case we take all the allowed nodes
+            keys = sorted(filter(lambda x: self.nodes[x]['allowed'], self.nodes.keys()))
+        elif len(labels) > 0:
+            # in this case we take only the given set of labels (but only the subset which is allowed). 
+            keys = sorted(filter(lambda x: self.nodes[x]['allowed'], labels))
+        else:
+            return None
+        
+        # among these labels, we need to find a seed for a cluster of cluster_size. 
+        # this seed is found by minimizing the feature distance. As no seed is guaranteed
+        # to result in a valid cluster, we take all valid nodes and rank them according to their distance to the mean cell. 
+        distances = np.array([self.nodes[i]['distance'] for i in keys])
+        indices = distances.argsort()
+        ranked_keys = np.array(keys)[indices]
+        
+        cluster_size = self.settings.cluster_size
+        cluster_defined = False
+        
+        # loop over all potential cluster seeds
+        while not cluster_defined and len(ranked_keys) > 0:
+
+            # get the cluster seed (the best one remaining) 
+            v = ranked_keys[0]
+            ranked_keys = ranked_keys[1:]
+            
+            #cluster_nodes = [ranked_keys[0]]        
+            cluster_nodes = []
+            waiting_nodes = np.array([v])
+            nb_chosen = len(cluster_nodes)
+
+            # loop to expand the cluster seed to reach cluster_size if possible. 
+            while nb_chosen < cluster_size and len(waiting_nodes) > 0:
+
+                # for all waiting_nodes we calculate the maximal distance to the already selected nodes (cluster_nodes)
+                eu_dist = [np.max(np.array([self.eudist(self.nodes[wo]['center'],
+                                                        self.nodes[cn]['center']) 
+                                            for cn in cluster_nodes])) 
+                           for wo in waiting_nodes]
+                indices = np.array(eu_dist).argsort()
+                waiting_nodes = waiting_nodes[indices]
+
+                node_added = False
+                while not node_added and len(waiting_nodes) > 0:
+                    o = waiting_nodes[0]
+                    waiting_nodes = waiting_nodes[1:]
+                    
+                    #if self.nodes[o]['allowed'] and not o in cluster_nodes: 
+                    if not o in cluster_nodes:
+                        cluster_nodes.append(o)
+                        node_added = True
+                        
+                        # add the neighbors to the waiting_nodes
+                        for nb in self.nodes[o]['neighbors']:
+
+                            # neighbors are added 
+                            if self.nodes[nb]['allowed'] and not nb in waiting_nodes and not nb in cluster_nodes:
+                                waiting_nodes.append(nb)
+                            
+                nb_chosen = len(cluster_nodes)
+
+            if len(cluster_nodes) < cluster_size:
+                # in this case, it was not possible to expand the cluster sufficiently. We can therefore set the corresponding 
+                # nodes to "not allowed"
+                for node_id in cluster_nodes:
+                    self.nodes[node_id]['allowed'] = False
+            else:
+                cluster_defined = True
+
+        if not cluster_defined: 
+            cluster_nodes = None
+            
+        return cluster_nodes
             
     def build_graph(self, adjmat, props):
         self.nodes = {}
         for i in range(1, adjmat.shape[0]):
-            lab_vec = np.where(adjmat[i,:])[0]          
+            lab_vec = np.where(adjmat[i,:])[0]    
             self.nodes[i] = {'allowed': True,
                              'neighbors': lab_vec[lab_vec>0], 
                              'distance': props[i]['distance'],
                              'center': props[i]['center'],
                              'chosen': False,
                              'min_dist': adjmat.shape[0] + 1}
+            
         return
     
     # recursive expansion
@@ -327,7 +404,7 @@ class Select(object):
         chosen = filter(lambda x: self.nodes[x]['chosen'], self.nodes.keys())
         return chosen
     
-    def choose_labels(self, K, imin_param=None):        
+    def choose_labels_backup(self, K, imin_param=None):        
         if self.settings.debug_screen_output:
             for node_id, node in self.nodes.iteritems():
                 print '%i: %s' % (node_id, self.nodes[node_id]['neighbors'])
@@ -427,6 +504,114 @@ class Select(object):
                     Lcand = [v]
 
             Lcand = list(set(filter(lambda x: x != v and self.nodes[x]['allowed'], Lcand)))
+            
+            r += 1
+            
+        return Lres
+    
+    def choose_labels(self, K, imin_param=None):        
+        if self.settings.debug_screen_output:
+            for node_id, node in self.nodes.iteritems():
+                print '%i: %s' % (node_id, self.nodes[node_id]['neighbors'])
+
+        imin = imin_param            
+        if not imin_param is None:
+            if not imin_param.dtype == 'uint8': 
+                imin = self.sw.reduce_range(imin_param)
+            
+        cluster_size = self.settings.cluster_size
+        cluster_dist = self.settings.cluster_dist
+        
+        # initialization
+        Lres = []
+        lb = self.select_label()        
+        Lcand = [lb]
+        #Lcand = self.select_cluster_nodes()
+        
+        r=0
+        
+        while len(Lcand) > 0:
+            
+            # gets the best label among the candidates
+            # the best means the closest to the average.
+            #v = self.select_label(Lcand)
+            v = self.select_cluster_nodes(Lcand)
+            
+#             if self.settings.debug_screen_output:                
+#                 if not v is None:
+#                     print 'Candidate: %i\tlabel: %i from %s' % (r, v, str(Lcand))
+#                 else: 
+#                     print 'no suitable candidate from candidate list'
+                    
+            if v is None:
+                # if none of the candidates is suitable, 
+                # we enlarge the search to all nodes.
+                v = self.select_cluster_nodes()
+                
+            if v is None:
+                # this means that there is no suitable candidate. 
+                # the algorithm has to stop
+                Lcand = []
+                break
+            
+            # v has been selected.
+            if self.settings.graph_overlay and not imin is None:
+                colim = self.overlay_graph(imin, labels=dict(zip(Lcand, [(230, 200, 0) for ttt in Lcand])))
+                skimage.io.imsave(os.path.join(self.settings.img_graph_overlay_folder, '%sgraph_overlay_candidate%03i_a.png' % (self.prefix, r)), colim)
+            # all nodes in the cluster are set to "chosen"
+            for s in v:
+                self.nodes[s]['chosen'] = True
+            if self.settings.graph_overlay and not imin is None:
+                colim = self.overlay_graph(imin, labels=dict(zip(Lcand, [(230, 200, 0) for ttt in Lcand])))
+                skimage.io.imsave(os.path.join(self.settings.img_graph_overlay_folder, '%sgraph_overlay_candidate%03i_b.png' % (self.prefix, r)), colim)
+
+            Lres.extend(v)
+
+            Q1 = Queue()
+            Q2 = Queue()
+
+            for node_id in v:                       
+                Q1.put(v)
+
+            # expansion step
+            for k in range(K+1): 
+                if self.settings.debug_screen_output and k>0:
+                    print '\texpansion: node %i\texpansion step %i\tcandidate: %i' % (v, k, r)
+
+                while not Q1.empty():
+
+                    n = Q1.get()
+                    self.nodes[n]['min_dist'] = min(self.nodes[n]['min_dist'], k)
+                    self.nodes[n]['allowed'] = False
+
+                    if self.settings.debug_screen_output:
+                        print '\t\t--> from Q1: %i' % n
+                                            
+                    for nb in self.nodes[n]['neighbors']:
+                        if self.nodes[nb]['min_dist'] > k: 
+                            Q2.put(nb)
+
+                if self.settings.graph_overlay and not imin is None and k>0:
+                    lc_filtered = filter(lambda x: self.nodes[x]['allowed'], Lcand)
+                    colim = self.overlay_graph(imin, labels=dict(zip(lc_filtered, [(230, 200, 0) for ttt in lc_filtered])))
+                    skimage.io.imsave(os.path.join(self.settings.img_graph_overlay_folder, '%sgraph_overlay_candidate%03i_step%03i.png' % (self.prefix, r, k)), colim)
+                
+                
+                Q1 = Q2
+                Q2 = Queue()
+                                        
+            # add new candidates
+            while not Q1.empty():
+                n = Q1.get()
+                if self.nodes[n]['allowed']:
+                    Lcand.append(n)
+            
+            if len(Lcand) == 0:
+                v = self.select_cluster_nodes()
+                if not v is None:
+                    Lcand = v
+
+            Lcand = list(set(filter(lambda x: not self.nodes[x]['chosen'] and self.nodes[x]['allowed'], Lcand)))
             
             r += 1
             
@@ -532,6 +717,8 @@ class Select(object):
         # find the co-occurence matrix. 
         # The co-occurence matrix informs us about the neighboring relationships.
         # From there, we can build the graph.
+        # attention : this does only work for < 256 objects. 
+        # in order to fix this, I need to patch skimage. 
         cooc = skimage.feature.greycomatrix(labels, [1], 
                                             [0, np.pi/4, np.pi/2, 3*np.pi/4,
                                              np.pi, 5*np.pi/4, 3*np.pi/2, 7*np.pi/4], 

@@ -51,6 +51,9 @@ class Select(object):
         if labels is None:
             labels = []
     
+        width = img.shape[1]
+        height = img.shape[0]
+        
         #img = self.sw.reduce_range(img_16bit)
              
         colim = color.gray2rgb(img)
@@ -74,6 +77,12 @@ class Select(object):
                                            np.int(np.round(self.nodes[nb_id]['center'][1])) )
                     
                 colorvalue = (255,255,255)
+
+                indices = filter(lambda i: rr[i] > 0 and rr[i] < height and cc[i]>0 and cc[i]<width, 
+                                 range(len(rr)) )
+                rr = rr[indices]
+                cc = cc[indices]
+            
                 for i, col in enumerate(colorvalue):
                     colim[rr,cc,i] = col
             
@@ -82,7 +91,11 @@ class Select(object):
             rr, cc = skimage.draw.circle(np.round(node['center'][0]), 
                                         np.round(node['center'][1]), 
                                         self.settings.graph_radius)
-            
+            indices = filter(lambda i: rr[i] > 0 and rr[i] < height and cc[i]>0 and cc[i]<width, 
+                             range(len(rr)) )
+            rr = rr[indices]
+            cc = cc[indices]
+
             if node['chosen']:
                 colorvalue = self.settings.graph_color_code[0]
             elif node['allowed']: 
@@ -101,6 +114,11 @@ class Select(object):
                                                            np.int(self.settings.graph_radius+radius_offset+cocentric),
                                                            method='andres')
                 
+                    indices = filter(lambda i: rr[i] > 0 and rr[i] < height and cc[i]>0 and cc[i]<width, 
+                                     range(len(rr)) )
+                    rr = rr[indices]
+                    cc = cc[indices]
+
                     for i, col in enumerate(colorvalue):
                         colim[rr,cc,i] = col
                 
@@ -272,6 +290,11 @@ class Select(object):
  
         return lb
 
+    def eudist(self, a, b):
+        res = np.sqrt(np.sum((np.array(a) - np.array(b))**2))
+        return res
+    
+    
     def select_cluster_nodes(self, labels=None):
         
         if labels is None:
@@ -286,8 +309,8 @@ class Select(object):
         # among these labels, we need to find a seed for a cluster of cluster_size. 
         # this seed is found by minimizing the feature distance. As no seed is guaranteed
         # to result in a valid cluster, we take all valid nodes and rank them according to their distance to the mean cell. 
-        distances = np.array([self.nodes[i]['distance'] for i in keys])
-        indices = distances.argsort()
+        scores = np.array([self.nodes[i]['distance'] for i in keys])
+        indices = scores.argsort()
         ranked_keys = np.array(keys)[indices]
         
         cluster_size = self.settings.cluster_size
@@ -307,15 +330,17 @@ class Select(object):
 
             # loop to expand the cluster seed to reach cluster_size if possible. 
             while nb_chosen < cluster_size and len(waiting_nodes) > 0:
-
+                
                 # for all waiting_nodes we calculate the maximal distance to the already selected nodes (cluster_nodes)
-                eu_dist = [np.max(np.array([self.eudist(self.nodes[wo]['center'],
-                                                        self.nodes[cn]['center']) 
-                                            for cn in cluster_nodes])) 
-                           for wo in waiting_nodes]
-                indices = np.array(eu_dist).argsort()
-                waiting_nodes = waiting_nodes[indices]
-
+                # minimizing the maximal distance allows to have compact classes. 
+                if len(waiting_nodes) > 1 and len(cluster_nodes) > 0:
+                    eu_dist = [np.max(np.array([self.eudist(self.nodes[wo]['center'],
+                                                            self.nodes[cn]['center']) 
+                                                for cn in cluster_nodes])) 
+                               for wo in waiting_nodes]
+                    indices = np.array(eu_dist).argsort()
+                    waiting_nodes = waiting_nodes[indices]
+                    
                 node_added = False
                 while not node_added and len(waiting_nodes) > 0:
                     o = waiting_nodes[0]
@@ -331,7 +356,7 @@ class Select(object):
 
                             # neighbors are added 
                             if self.nodes[nb]['allowed'] and not nb in waiting_nodes and not nb in cluster_nodes:
-                                waiting_nodes.append(nb)
+                                waiting_nodes = np.append(waiting_nodes, nb)
                             
                 nb_chosen = len(cluster_nodes)
 
@@ -412,7 +437,7 @@ class Select(object):
         imin = imin_param            
         if not imin_param is None:
             if not imin_param.dtype == 'uint8': 
-                imin = self.sw.reduce_range(imin_param)
+                imin = self.sw.reduce_range(imin_param, minmax=True)
             
         # initialization
         Lres = []
@@ -571,12 +596,12 @@ class Select(object):
             Q2 = Queue()
 
             for node_id in v:                       
-                Q1.put(v)
+                Q1.put(node_id)
 
             # expansion step
             for k in range(K+1): 
-                if self.settings.debug_screen_output and k>0:
-                    print '\texpansion: node %i\texpansion step %i\tcandidate: %i' % (v, k, r)
+                #if self.settings.debug_screen_output and k>0:
+                #    print '\texpansion: node %i\texpansion step %i\tcandidate: %i' % (v, k, r)
 
                 while not Q1.empty():
 

@@ -63,12 +63,12 @@ prefilter_settings = {
                       # These are the relevant settings for the prefiltering
                       'med_denbi_asfrec': {
                                            # prefiltering
-                                           'median_size': 1,
+                                           'median_size': 2,
                                            
                                            # weight of the gray level values
                                            # grey level values are weighted with a Gaussian
                                            # according to the distance to the center value. 
-                                           'sigma_signal': .05,
+                                           'sigma_signal': .15,
                                            'sigma_space': 2,
 
                                            # bins and win_size are also parameters for the bilateral filter 
@@ -89,21 +89,21 @@ homogenize_settings = {'h': 10}
 
 segmentation_settings = {
                          'prefiltering': 'med_denbi_asfrec',
-                         'thresh': 2,
-                         'thresh_hmax': 2,
+                         'thresh': 4,
+                         'thresh_hmax': 4,
 
                          #'bg_sub': 'constant_median',
                          'bg_sub': 'avg',    
                          #'bg_sub': 'med',         
-                         'hole_size': 7,                                          
+                         'hole_size': 11,                                          
                          }
 
 background_subtraction = {
                           'radius': 20,
                           }
 
-postfilter = {'area': 50,              
-              'mean_intensity': 5.0,
+postfilter = {'area': 200,              
+              'mean_intensity': 15.0,
 
               # threshold for split lines: if the mean intensity of the gradient is lower than this parameter
               # then the split line is rejected. A value of 0.0 for instance is neutral (does not reject anything). 

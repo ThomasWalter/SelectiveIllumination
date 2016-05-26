@@ -51,8 +51,7 @@ class Select(object):
         if labels is None:
             labels = []
     
-        #img = self.sw.reduce_range(img_16bit)
-             
+        #img = self.sw.reduce_range(img_16bit)        
         colim = color.gray2rgb(img)
         if self.nodes is None:
             print 'graph is not yet built.'
@@ -335,7 +334,7 @@ class Select(object):
         imin = imin_param            
         if not imin_param is None:
             if not imin_param.dtype == 'uint8': 
-                imin = self.sw.reduce_range(imin_param)
+                imin = self.sw.reduce_range(imin_param, minmax=True)
             
         # initialization
         Lres = []

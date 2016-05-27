@@ -295,6 +295,28 @@ class Select(object):
         return res
     
     
+    def normalize_vec_eu(self, a):
+        mean_a = np.mean(a)
+        std_a = np.std(a)
+
+        if std_a > 0:
+            norm_vec = (a - mean_a) / std_a
+        else:
+            norm_vec = a - mean_a
+
+        return norm_vec
+
+    def normalize_vec(self, a):
+        min_a = np.min(a)
+        max_a = np.max(a)
+        
+        if max_a > min_a:
+            norm_vec = (a.astype('float') - min_a) / (max_a - min_a)
+        else:
+            norm_vec = a.astype('float') - min_a
+
+        return norm_vec
+    
     def select_cluster_nodes(self, labels=None):
         
         if labels is None:
@@ -304,15 +326,38 @@ class Select(object):
             # in this case we take only the given set of labels (but only the subset which is allowed). 
             keys = sorted(filter(lambda x: self.nodes[x]['allowed'], labels))
         else:
+            return None        
+        
+        if len(keys) == 0:
             return None
         
         # among these labels, we need to find a seed for a cluster of cluster_size. 
         # this seed is found by minimizing the feature distance. As no seed is guaranteed
         # to result in a valid cluster, we take all valid nodes and rank them according to their distance to the mean cell. 
-        scores = np.array([self.nodes[i]['distance'] for i in keys])
-        indices = scores.argsort()
-        ranked_keys = np.array(keys)[indices]
-        
+        if self.settings.ordered_cell_selection:            
+            dist_to_avg = self.normalize_vec(np.array([self.nodes[i]['distance'] for i in keys]))
+            np_connections = self.normalize_vec(np.array([len(self.nodes[i]['neighbors']) for i in keys]))
+            x = self.normalize_vec(np.array([self.nodes[i]['center'][1] for i in keys]))
+            y = self.normalize_vec(np.array([self.nodes[i]['center'][0] for i in keys]))
+            scores = np.array(1000 * np_connections + 100 * x + 10 * y + dist_to_avg)
+            indices = scores.argsort()
+            ranked_keys = np.array(keys)[indices]
+        else: 
+            dist_to_avg = self.normalize_vec(np.array([self.nodes[i]['distance'] for i in keys]))
+            #x = self.normalize_vec(np.array([self.nodes[i]['center'][1] for i in keys]))
+            #y = self.normalize_vec(np.array([self.nodes[i]['center'][0] for i in keys]))
+            np_connections = self.normalize_vec(np.array([len(self.nodes[i]['neighbors']) for i in keys]))
+            
+            scores = np.array(10 * (np.max(np_connections) - np_connections) + dist_to_avg)
+            indices = scores.argsort()
+            ranked_keys = np.array(keys)[indices]            
+            
+            
+            #print 'node selection : ', labels, ' --> ', ranked_keys
+            #print '\t', [len(self.nodes[i]['neighbors']) for i in keys]
+            #print '\t', [len(self.nodes[i]['neighbors']) for i in ranked_keys]
+            
+            
         cluster_size = self.settings.cluster_size
         cluster_defined = False
         
@@ -542,14 +587,24 @@ class Select(object):
         imin = imin_param            
         if not imin_param is None:
             if not imin_param.dtype == 'uint8': 
-                imin = self.sw.reduce_range(imin_param)
+                imin = self.sw.reduce_range(imin_param, minmax=True)
             
         cluster_size = self.settings.cluster_size
         cluster_dist = self.settings.cluster_dist
         
         # initialization
         Lres = []
-        lb = self.select_label()        
+        if self.settings.ordered_cell_selection:                        
+            #np_connections = self.normalize_vec(np.array([len(self.nodes[i]['neighbors']) for i in keys]))
+            keys = sorted(self.nodes.keys())
+            x = self.normalize_vec(np.array([self.nodes[i]['center'][1] for i in keys]))
+            y = self.normalize_vec(np.array([self.nodes[i]['center'][0] for i in keys]))
+            scores = np.array(x**2 + y**2)
+            indices = scores.argsort()
+            lb = keys[indices[0]]
+        else:            
+            lb = self.select_label()        
+
         Lcand = [lb]
         #Lcand = self.select_cluster_nodes()
         
@@ -609,8 +664,8 @@ class Select(object):
                     self.nodes[n]['min_dist'] = min(self.nodes[n]['min_dist'], k)
                     self.nodes[n]['allowed'] = False
 
-                    if self.settings.debug_screen_output:
-                        print '\t\t--> from Q1: %i' % n
+#                     if self.settings.debug_screen_output:
+#                         print '\t\t--> from Q1: %i' % n
                                             
                     for nb in self.nodes[n]['neighbors']:
                         if self.nodes[nb]['min_dist'] > k: 
@@ -681,8 +736,8 @@ class Select(object):
         properties = measure.regionprops(labels, imout)
 
         # check centers
-        for pr in properties:
-            print 'image coordinates (pixel) : %i, %i' % (pr.centroid[0], pr.centroid[1])
+        #for pr in properties:
+        #    print 'image coordinates (pixel) : %i, %i' % (pr.centroid[0], pr.centroid[1])
             
         centers = [(0.0, 0.0)] + [ (pr.centroid[0] * self.settings.param_pixel_size, 
                                     pr.centroid[1] * self.settings.param_pixel_size)
@@ -700,18 +755,31 @@ class Select(object):
         w = imout.shape[1] * self.settings.param_pixel_size
         h = imout.shape[0] * self.settings.param_pixel_size        
     
-        print w, h    
+        print 'width and height : ', w, h    
         i = 1
         for y, x in centers[1:]:
             x_o = stage_coord[0] + y - h / 2.0
             y_o = stage_coord[1] + w / 2.0 - x
             z_o = stage_coord[2]
-            print x, y, ' ---> ', x_o, y_o, z_o
+            #print x, y, ' ---> ', x_o, y_o, z_o
             tempStr = '"Cell%i", %f, %f, %f, 0, 0, FALSE, -9999, TRUE, TRUE, 0, -1, ""\n' % (i, x_o, y_o, z_o)
             fp.write(tempStr)
             i += 1
         fp.close()
-        
+
+        # write the original point (in order to get back to the origin)
+        extension = os.path.splitext(filename)[-1]
+        basefilename = os.path.splitext(filename)[0]
+        origin_filename = basefilename + '_origin' + extension 
+        fp = open(origin_filename, 'w')
+        fp.write('"Stage Memory List", Version 6.0\n')
+        fp.write('0, 0, 0, 0, 0, 0, 0, "um", "um"\n')
+        fp.write('0\n')
+        fp.write('1\n')
+        tempStr = '"Cell1", %f, %f, %f, 0, 0, FALSE, -9999, TRUE, TRUE, 0, -1, ""\n' % (stage_coord[0], stage_coord[1], stage_coord[2])
+        fp.write(tempStr)
+        fp.close()
+
         return
 
     def circles_to_xml_file(self, imout, filename):

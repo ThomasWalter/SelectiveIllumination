@@ -19,6 +19,7 @@ img_graph_overlay_folder_sub = 'img_graph_overlay'
 img_single_output_folder_sub = 'img_chosen_cells'
 coordinate_folder_sub = 'coordinates'
 metamorph_folder_sub = 'metamorph'
+ordered_cell_selection = False
 
     
 debug = False

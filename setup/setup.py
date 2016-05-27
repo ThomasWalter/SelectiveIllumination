@@ -10,7 +10,7 @@ from setuptools import setup
 APP = ['../pysrc/gui/main_window.py']
 DATA_FILES = []
 OPTIONS = {#'argv_emulation': True,
-           'iconfile' : 'SelectivIllu.icns',
+           'iconfile' : 'SelectiveIllu.icns',
            'packages': ['PIL', 'skimage', 'numpy', 'scipy']}
 
 setup(

@@ -69,7 +69,8 @@ class Analyzer(object):
                                             prefix=os.path.splitext(os.path.basename(filename))[0].replace(' ', '_') + '__')
 
         # run selection
-        selected_cells = sel(imin, res, 1)
+        cluster_dist = self.settings.cluster_dist
+        selected_cells = sel(imin, res, cluster_dist)
         
         # get the header information
         x, y, z = sel.read_header(filename)

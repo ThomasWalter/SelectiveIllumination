@@ -65,7 +65,7 @@ class SimpleWorkflow(object):
         elif not settings_filename is None:
             self.settings = Settings(os.path.abspath(settings_filename), dctGlobals=globals())
         
-        print self.settings
+        #print self.settings
         
         for folder in self.settings.make_folder:
             if not os.path.isdir(folder):

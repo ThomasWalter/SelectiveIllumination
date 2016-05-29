@@ -53,7 +53,8 @@ class MainForm(Frame):
         self.param_pixel_size_tk = StringVar()
         self.param_pixel_size_tk.set('0.32')
         
-        self.param_random_selection_tk = IntVar()
+        self.param_ordered_selection = False
+        self.param_ordered_selection_tk = IntVar()
         
         Frame.__init__(self, parent)            
         self.parent = parent
@@ -108,6 +109,7 @@ class MainForm(Frame):
         settings.param_pixel_size = gui_settings['param_pixel_size']
         settings.cluster_dist = gui_settings['cluster_dist']
         settings.cluster_size = gui_settings['cluster_size']
+        settings.ordered_cell_selection = gui_settings['ordered_cell_selection']
         
         # This is bad ... 
         result_folder = settings.result_folder
@@ -178,7 +180,7 @@ class MainForm(Frame):
         self.settings['param_pixel_size'] = param_pixel_size
 
 
-        self.settings['random_cell_selection'] = self.param_random_selection_tk.get() == 1
+        self.settings['ordered_cell_selection'] = self.param_ordered_selection_tk.get() == 1
 
         self.settings['make_coordinate_file'] = self.output_generate_coordinate_file_tk.get() == 1
         self.settings['make_metamorph_file'] = self.output_generate_metamorph_file_tk.get() == 1
@@ -222,7 +224,7 @@ class MainForm(Frame):
                             padx=ALLPAD, pady=ALLPAD, ipadx=ALLPAD, ipady=ALLPAD)
         parameter_settings.grid(row=3, columnspan=3, sticky='WE', 
                                 padx=ALLPAD, pady=ALLPAD, ipadx=ALLPAD, ipady=ALLPAD)
-        output_settings.grid(row=6, columnspan=3, sticky='WE', 
+        output_settings.grid(row=7, columnspan=3, sticky='WE', 
                              padx=ALLPAD, pady=ALLPAD, ipadx=ALLPAD, ipady=ALLPAD)
         down_buttons.grid(row=11, columnspan=2, sticky='WE', 
                           padx=ALLPAD, pady=ALLPAD, ipadx=ALLPAD, ipady=ALLPAD)
@@ -259,7 +261,7 @@ class MainForm(Frame):
         self.e5 = Entry(parameter_settings, text=self.param_dist_tk) 
         self.e6 = Entry(parameter_settings, text=self.param_pixel_size_tk) 
 
-        self.cb_random_selection = Checkbutton(output_settings, text="Random Cell Selection", variable=self.param_random_selection_tk)
+        self.cb_ordered_selection = Checkbutton(parameter_settings, text="Ordered Selection (priority according to position in the image)", variable=self.param_ordered_selection_tk)
 
         # current row_index is 3. 
         row_index = 3
@@ -273,7 +275,7 @@ class MainForm(Frame):
         self.e6.grid(row=row_index, column=1, sticky=W)
         row_index += 1
         
-        self.cb_random_selection.grid(row=row_index, column=0, sticky=W)
+        self.cb_ordered_selection.grid(row=row_index, column=0, sticky=W)
         row_index += 1        
 
         # output        
@@ -289,7 +291,7 @@ class MainForm(Frame):
         self.cb_output_generate_final_mask.grid(row=row_index, column=0, sticky=W, pady=4)
         row_index += 1
         
-        self.cb_output_generate_coordinate_file = Checkbutton(output_settings, text="Generate Coordinate Text ile", variable=self.output_generate_coordinate_file_tk)
+        self.cb_output_generate_coordinate_file = Checkbutton(output_settings, text="Generate Coordinate Text File", variable=self.output_generate_coordinate_file_tk)
         self.cb_output_generate_coordinate_file.grid(row=row_index, column=0, sticky=W, pady=4)
         row_index += 1
         

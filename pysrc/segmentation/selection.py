@@ -796,12 +796,13 @@ class Select(object):
         
         return
         
-    def __call__(self, imin, imbin, K):
+    def __call__(self, imin, imbin, K, max_extension=100):
         
         # First we label cellular regions. 
         # this can be done by a simple voronoi approach or by some other method.
         # here it is done with voronoi (with max extension of 100). 
-        cell_labels, labels = self.find_neighbors(imbin, 100)
+        
+        cell_labels, labels = self.find_neighbors(imbin, max_extension)
 
         if self.settings.debug:
             skimage.io.imsave(os.path.join(self.settings.img_debug_folder, 

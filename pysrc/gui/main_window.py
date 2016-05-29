@@ -5,6 +5,10 @@ GUI for Cell Grid Illumination
 import os, sys, time
 sys.path.append('../..')
 
+# in order to achieve compatibility with older Mac versions
+import matplotlib
+matplotlib.use('TkAgg')
+
 from Tkinter import *
 from ttk import *
 
@@ -52,6 +56,9 @@ class MainForm(Frame):
         self.param_dist_tk.set('1')
         self.param_pixel_size_tk = StringVar()
         self.param_pixel_size_tk.set('0.32')
+        
+        self.param_max_extension_tk = StringVar()
+        self.param_max_extension_tk.set('100')
         
         self.param_ordered_selection = False
         self.param_ordered_selection_tk = IntVar()
@@ -109,6 +116,7 @@ class MainForm(Frame):
         settings.param_pixel_size = gui_settings['param_pixel_size']
         settings.cluster_dist = gui_settings['cluster_dist']
         settings.cluster_size = gui_settings['cluster_size']
+        settings.max_extension = gui_settings['max_extension']
         settings.ordered_cell_selection = gui_settings['ordered_cell_selection']
         
         # This is bad ... 
@@ -170,6 +178,13 @@ class MainForm(Frame):
         self.settings['cluster_dist'] = cluster_dist
 
         try:    
+            max_extension = int(self.param_max_extension_tk.get())
+        except:
+            mbox.showerror("Error", "Value for maximal extension is not valid. Please enter an integer.")
+            return None
+        self.settings['max_extension'] = max_extension
+
+        try:    
             param_pixel_size = float(self.param_pixel_size_tk.get())
             if param_pixel_size <= 0.0:
                 mbox.showerror("Error", "Value for pixel size not valid. Please enter a positive float.")
@@ -224,7 +239,7 @@ class MainForm(Frame):
                             padx=ALLPAD, pady=ALLPAD, ipadx=ALLPAD, ipady=ALLPAD)
         parameter_settings.grid(row=3, columnspan=3, sticky='WE', 
                                 padx=ALLPAD, pady=ALLPAD, ipadx=ALLPAD, ipady=ALLPAD)
-        output_settings.grid(row=7, columnspan=3, sticky='WE', 
+        output_settings.grid(row=8, columnspan=3, sticky='WE', 
                              padx=ALLPAD, pady=ALLPAD, ipadx=ALLPAD, ipady=ALLPAD)
         down_buttons.grid(row=11, columnspan=2, sticky='WE', 
                           padx=ALLPAD, pady=ALLPAD, ipadx=ALLPAD, ipady=ALLPAD)
@@ -256,10 +271,13 @@ class MainForm(Frame):
         Label(parameter_settings, text="Cluster size").grid(row=3, sticky=W)
         Label(parameter_settings, text="Cluster distance").grid(row=4, sticky=W)
         Label(parameter_settings, text="Pixel size").grid(row=5, sticky=W)
+        Label(parameter_settings, text="Maximal Distance between neighbor cells").grid(row=6, sticky=W)
 
         self.e4 = Entry(parameter_settings, text=self.param_clustersize_tk) 
         self.e5 = Entry(parameter_settings, text=self.param_dist_tk) 
         self.e6 = Entry(parameter_settings, text=self.param_pixel_size_tk) 
+        self.e7 = Entry(parameter_settings, text=self.param_max_extension_tk) 
+
 
         self.cb_ordered_selection = Checkbutton(parameter_settings, text="Ordered Selection (priority according to position in the image)", variable=self.param_ordered_selection_tk)
 
@@ -273,6 +291,9 @@ class MainForm(Frame):
         row_index += 1
 
         self.e6.grid(row=row_index, column=1, sticky=W)
+        row_index += 1
+
+        self.e7.grid(row=row_index, column=1, sticky=W)
         row_index += 1
         
         self.cb_ordered_selection.grid(row=row_index, column=0, sticky=W)

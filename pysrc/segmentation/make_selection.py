@@ -70,7 +70,8 @@ class Analyzer(object):
 
         # run selection
         cluster_dist = self.settings.cluster_dist
-        selected_cells = sel(imin, res, cluster_dist)
+        max_extension = self.settings.max_extension        
+        selected_cells = sel(imin, res, cluster_dist, max_extension=max_extension)
         
         # get the header information
         x, y, z = sel.read_header(filename)

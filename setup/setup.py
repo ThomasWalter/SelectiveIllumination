@@ -16,6 +16,8 @@ OPTIONS = {
 
 setup(
     app=APP,
+    name="Selective Illumination",
+    version="1.0",
     data_files=DATA_FILES,
     options={'py2app': OPTIONS},
     setup_requires=['py2app'],
